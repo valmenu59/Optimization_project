@@ -42,6 +42,24 @@ class Employee:
         self.w_e_max = w_e_max
         self.m_e_max = m_e_max
 
+def str_to_int(elem):
+    try:
+        return int(elem)
+    except ValueError:
+        return elem
+
+def transform_line_to_list(line: str):
+    elements = []
+    for x in line.strip(",").split(","):
+        if not("|" in x):
+            elements.append([str_to_int(x)])
+        else:
+            elements.append([])
+            for y in x.strip("|").split("|"):
+                elements[-1].append(str_to_int(y))
+
+    print(elements)
+    return elements
 
 
 def read_txt_file(file_name: str):
@@ -50,13 +68,19 @@ def read_txt_file(file_name: str):
                 "SECTION_SHIFT_OFF_REQUESTS", "SECTION_COVER"]
 
     duration = 0
+    section_shift = []
+    section_staff = []
+    section_days_off = []
+    section_shift_on_requests = []
+    section_shift_off_requests = []
+    section_cover = []
 
     try:
         with open(file_name, "r") as f:
             section_number = -1
             for line in f:
                 line = line.strip()
-                print("line: ", line)
+                # print("line: ", line)
                 if line in sections:
                     section_number += 1
                 elif line.startswith("#") or line == "":
@@ -69,17 +93,18 @@ def read_txt_file(file_name: str):
                     except ValueError:
                         assert "this is not a number"
                 elif section_number == 1:
-                    pass
+                    section_shift = transform_line_to_list(line)
                 elif section_number == 2:
-                    pass
+                    section_staff = transform_line_to_list(line)
                 elif section_number == 3:
-                    pass
+                    section_days_off = transform_line_to_list(line)
                 elif section_number == 4:
-                    pass
+                    section_shift_on_requests = transform_line_to_list(line)
                 elif section_number == 5:
-                    pass
+                    section_shift_off_requests = transform_line_to_list(line)
                 elif section_number == 6:
-                    pass
+                    section_cover = transform_line_to_list(line)
+            return duration, section_shift, section_staff, section_days_off, section_shift_on_requests, section_shift_off_requests, section_cover
 
     except FileNotFoundError as e:
         print("file not found")
@@ -114,7 +139,8 @@ with Model(name='test_cplex') as md:
 
 
 def main():
-    read_txt_file("Instance3.txt")
+    elements = read_txt_file("Instance3.txt")
+
 
 
 
