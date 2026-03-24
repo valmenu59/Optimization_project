@@ -9,38 +9,50 @@ import datetime as dt
 
 class Shift:
     """
+    id: (str)
     d_p: (int) duration time (in minutes)
     i_p: list(Shift) the set of shift types that cannot be assigned immediately
+
     u_jp: (int) the number of staff required for shift type p on day j in J
     """
-    def __init__(self, duration: int, shift_type, number_staff_required: int):
+    def __init__(self, id: str, duration: int, shift_type, number_staff_required: int):
+        self.id = id
         self.d_p = duration
-        self.i_p = shift_type
         self.u_jp = number_staff_required
+        self.i_p = shift_type
 
 class Employee:
     """
     id: (str) employee id
+    m_e_max: [(Shift, int)] maximum number of days that can work on shift type p
+    t_e_max: (int) maximum total working time (in min)
+    t_e_min: (int) minimum total working time (in min)
+    c_e_max: (int) maximum number f consecutive working shifts that must work (nombre de jour consécutif qu'il peut travailler au max)
+    c_e_min: (int) minimum number f consecutive working shifts that must work
+    r_e_min: (int) minimum number of consecutive days off to be assigned (nombre de jour off minimum consécutif)
+    w_e_max: (int) maximum number of weekends that he can work
+
 
     r_e: (int) the set of days when this employee does not work (days off)
-    t_e_min: (int) minimum total working time (in min)
-    t_e_max: (int) maximum total working time (in min)
-    c_e_min: (int) minimum number f consecutive working shifts that must work
-    c_e_max: (int) maximum number f consecutive working shifts that must work
-    r_e_min: (int) minimum number of consecutive days off to be assigned
-    w_e_max: (int) maximum number of weekends that he can work
-    m_e_max: maximum number of days that can work on shift type p
+
+
+
     """
     def __init__(self, id: str, r_e: int, t_e_min: int, t_e_max: int, c_e_min: int, c_e_max: int, r_e_min: int, w_e_max: int, m_e_max: int):
         self.id = id
-        self.r_e = r_e
-        self.t_e_min = t_e_min
+
+        self.m_e_max = m_e_max
         self.t_e_max = t_e_max
-        self.c_e_min = c_e_min
+        self.t_e_min = t_e_min
         self.c_e_max = c_e_max
+        self.c_e_min = c_e_min
         self.r_e_min = r_e_min
         self.w_e_max = w_e_max
-        self.m_e_max = m_e_max
+
+
+        self.r_e = r_e
+
+
 
 def str_to_int(elem):
     try:
