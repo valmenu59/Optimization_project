@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link href="/style.css" rel="stylesheet">
+    <title>CPLEX</title>
+</head>
+<body>
+    <div id="data-container">
+        <%= results %>
+    </div>
+    <script>
+        const results = <%- JSON.stringify(results) %>;
+
+        console.log("Données reçues dans le script :", results);
+
+        results.forEach((result) => {
+            let employeeId = result[0];
+            let schedule = result[1];
+
+            let title = document.createElement("h3");
+            title.textContent = `Employee ${employeeId}:`;
+            document.body.appendChild(title);
+
+            let table;
+            let headerRow;
+            let shiftRow;
+            const days = ["Mon.", "Tue.", "Wed.", "Thu.", "Fri.", "Sat.", "Sun."];
+
+            for (let j = 0; j < schedule.length; j++) {
+
+                if (j % 7 === 0) {
+                    table = document.createElement("table");
+                    //table.border = "1";
+                    table.style.marginBottom = "20px";
+
+                    headerRow = document.createElement("tr"); // days
+                    headerRow.classList.add("headerDay");
+                    shiftRow = document.createElement("tr");  // shift
+                    shiftRow.classList.add("shiftRow");
+
+                    table.appendChild(headerRow);
+                    table.appendChild(shiftRow);
+                    document.body.appendChild(table);
+                }
+
+
+                // day cell
+                let tdDay = document.createElement("td");
+                tdDay.textContent = `${days[j % 7]} ${j + 1}`;
+                tdDay.classList.add("day");
+                if (j % 7 === 5 || j % 7 === 6) {
+                    tdDay.classList.add("weekend");
+                }
+                //tdDay.style.backgroundColor = "#f2f2f2";
+                headerRow.appendChild(tdDay);
+
+                // shift cell
+                let tdShift = document.createElement("td");
+                tdShift.textContent = schedule.charAt(j);
+                tdShift.classList.add("shift");
+                if (j % 7 === 5 || j % 7 === 6) {
+                    tdShift.classList.add("weekend");
+                }
+                shiftRow.appendChild(tdShift);
+            }
+        });
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+body {
+    font-family: Verdana, Geneva, Tahoma, sans-serif;
+}
+
+table {
+    border-collapse: collapse;
+}
+
+th, td {
+    border: 1px solid black;
+    padding: 8px;
+    min-width: 80px;
+    max-width: 80px;
+}
+
+.day {
+    background-color: #545dbf;
+    color: white;
+}
+
+.day.weekend {
+    background-color: #54bf66;
+    color: white;
+}
