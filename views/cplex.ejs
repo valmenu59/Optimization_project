@@ -14,7 +14,7 @@
     <script>
         const results = <%- JSON.stringify(results) %>;
 
-        console.log("Données reçues dans le script :", results);
+        console.log("Data got :\n", results);
 
         results.forEach((result) => {
             let employeeId = result[0];
@@ -28,43 +28,58 @@
             let headerRow;
             let shiftRow;
             const days = ["Mon.", "Tue.", "Wed.", "Thu.", "Fri.", "Sat.", "Sun."];
+            let rows;
 
-            for (let j = 0; j < schedule.length; j++) {
+            for (let j = 0; j < schedule.length; j+=2) {
 
-                if (j % 7 === 0) {
+                if ((j / 2) % 7 === 0) {
                     table = document.createElement("table");
                     //table.border = "1";
                     table.style.marginBottom = "20px";
 
+
                     headerRow = document.createElement("tr"); // days
                     headerRow.classList.add("headerDay");
-                    shiftRow = document.createElement("tr");  // shift
-                    shiftRow.classList.add("shiftRow");
-
                     table.appendChild(headerRow);
-                    table.appendChild(shiftRow);
+
+                    rows = [];
+                    for (let i = 0; i < 3; i++){
+                        shiftRow = document.createElement("tr");  // shift
+                        shiftRow.classList.add("shiftRow");
+                        table.appendChild(shiftRow);
+                        rows.push(shiftRow);
+                    }
+
+
                     document.body.appendChild(table);
                 }
 
 
                 // day cell
                 let tdDay = document.createElement("td");
-                tdDay.textContent = `${days[j % 7]} ${j + 1}`;
+                tdDay.textContent = `${days[(j / 2) % 7]} ${(j / 2) + 1}`;
                 tdDay.classList.add("day");
-                if (j % 7 === 5 || j % 7 === 6) {
+                if ((j / 2) % 7 === 5 || (j / 2) % 7 === 6) {
                     tdDay.classList.add("weekend");
                 }
                 //tdDay.style.backgroundColor = "#f2f2f2";
                 headerRow.appendChild(tdDay);
 
                 // shift cell
-                let tdShift = document.createElement("td");
-                tdShift.textContent = schedule.charAt(j);
-                tdShift.classList.add("shift");
-                if (j % 7 === 5 || j % 7 === 6) {
-                    tdShift.classList.add("weekend");
+                for (let i = 0; i < 3; i++){
+                    let tdShift = document.createElement("td");
+                    if (schedule.charAt(j) !== "/" && schedule.charAt(j + 1) == i){
+                        tdShift.textContent = schedule.charAt(j);
+                        tdShift.classList.add("has_shift");
+                    } else {
+                        tdShift.textContent = "/";
+                    }
+                    tdShift.classList.add("shift");
+                    if ((j / 2) % 7 === 5 || (j / 2) % 7 === 6) {
+                        tdShift.classList.add("weekend");
+                    }
+                    rows[i].appendChild(tdShift);
                 }
-                shiftRow.appendChild(tdShift);
             }
         });
 

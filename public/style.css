@@ -22,3 +22,7 @@ th, td {
     background-color: #54bf66;
     color: white;
 }
+
+.has_shift {
+    background-color: #e8ae57;
+}

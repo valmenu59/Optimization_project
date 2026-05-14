@@ -194,7 +194,8 @@ def main():
     elements = read_txt_file("Instance3.txt")
     print(elements)
 
-    numbers_days = elements[0]
+    numbers_days = int(elements[0])
+    numbers_shift_per_day = 3
 
     shifts = []
     for i in range(len(elements[1])):
@@ -224,31 +225,40 @@ def main():
 
     with Model(name = "cplex") as md:
         # variables
-        x = md.binary_var_dict([(e.id, d, s.id)
+        x = md.binary_var_dict([(e.id, d, s.id, ns)
                                 for e in employees
                                 for d in range(numbers_days)
                                 for s in shifts
+                                for ns in range(numbers_shift_per_day)
                                 ], name = "x"
                                )
 
-        y_minus = md.integer_var_dict([(d, s.id) for d in range(numbers_days) for s in shifts], lb=0, name="shortage")
-        y_plus = md.integer_var_dict([(d, s.id) for d in range(numbers_days) for s in shifts], lb=0, name="surplus")
+        y_minus = md.integer_var_dict([(d, s.id, ns) for d in range(numbers_days) for s in shifts for ns in range(numbers_shift_per_day)], lb=0, name="shortage")
+        y_plus = md.integer_var_dict([(d, s.id, ns) for d in range(numbers_days) for s in shifts for ns in range(numbers_shift_per_day)], lb=0, name="surplus")
 
         # CONSTRAINTS
         # 1st constraint: Each employee can be assigned to only one shift type per day at most
         for e in employees:
             for d in range(numbers_days):
-                for s in shifts:
-                    md.add_constraint(md.sum(x[e.id, d, s.id] <= 1))
+                md.add_constraint(
+                    md.sum(x[e.id, d, s.id, ns] for s in shifts for ns in range(numbers_shift_per_day)) <= 1
+                )
+        # Impossible to work in night and the morning the next day
+        for e in employees:
+            for d in range(numbers_days - 1):
+                night_shifts = md.sum(x[e.id, d, s.id, 2] for s in shifts)
+                morning_shifts_plus_one = md.sum(x[e.id, d + 1, s.id, 0] for s in shifts)
+                md.add_constraint(night_shifts + morning_shifts_plus_one <= 1)
 
 
         # 2nd constraint: Incompatibility in the sequence of certain shift types across consecutive days
         for e in employees:
             for d in range(numbers_days - 1):  # the last day is useless to get
                 for s in shifts:
-                    for not_follow in s.cannot_follow:  # Votre liste d'incompatibilités[cite: 1]
-                        # Si travaille p1 au jour j, ne peut pas travailler p2 au jour j+1
-                        md.add_constraint(x[e.id, d, s.id] + x[e.id, d + 1, not_follow] <= 1)
+                    for not_follow in s.cannot_follow:
+                        day_j = md.sum(x[e.id, d, s.id, ns] for ns in range(numbers_shift_per_day))
+                        day_j_plus_one = md.sum(x[e.id, d + 1, not_follow, ns] for ns in range(numbers_shift_per_day))
+                        md.add_constraint(day_j + day_j_plus_one <= 1)
 
 
         # 3rd constraint: Each employee e is assigned at most m^max(ep) times to shift p
@@ -258,17 +268,17 @@ def main():
                 max_assignments = e.m_e_max[j + 1] # Ex: '14'
 
                 md.add_constraint(
-                    md.sum(x[e.id, d, shift_id] for d in range(numbers_days)) <= max_assignments,
+                    md.sum(x[e.id, d, shift_id, ns] for d in range(numbers_days) for ns in range(numbers_shift_per_day)) <= max_assignments,
                     ctname=f"max_shift_{e.id}_{shift_id}"
                 )
 
         # 4th constraint: Each employee works a bounded total duration.
         for e in employees:
-            # TODO: remove divide it to 3 shift / day
-
-            total_minutes = md.sum(x[e.id, d, s.id] * s.d_p
+            total_minutes = md.sum(x[e.id, d, s.id, ns] * s.d_p
                                    for d in range(numbers_days)
-                                   for s in shifts)
+                                   for s in shifts
+                                   for ns in range(numbers_shift_per_day)
+                                   )
 
             md.add_constraint(total_minutes >= e.t_e_min,
                               ctname=f"min_time_{e.id}")
@@ -299,25 +309,27 @@ def main():
         cover_dict = None
         for d in range(numbers_days):
             for s in shifts:
-                cover_dict = {(c.day, c.shift_id): (c.requirement, c.weight_under, c.weight_over) for c in covers}
+                for ns in range(numbers_shift_per_day):
+                    cover_dict = {(c.day, c.shift_id): (c.requirement, c.weight_under, c.weight_over) for c in covers}
 
-                req, w_under, w_over = cover_dict.get((d, s.id), (0, 0, 0))
+                    req, w_under, w_over = cover_dict.get((d, s.id), (0, 0, 0))
 
-                # constraint 10th
-                md.add_constraint(
-                    md.sum(x[e.id, d, s.id] for e in employees) == req - y_minus[d, s.id] + y_plus[d, s.id],
-                    ctname=f"coverage_d{d}_s{s.id}"
-                )
+                    # constraint 10th
+                    md.add_constraint(
+                        md.sum(x[e.id, d, s.id, ns] for e in employees) == req - y_minus[d, s.id, ns] + y_plus[d, s.id, ns],
+                        ctname=f"coverage_d{d}_s{s.id}"
+                    )
 
 
         # OBJECTIVE
         # The goal here is to minimize the weight (weight = penality), defined in section_cover
         # Here force the model to do working employees
         obj = md.sum(
-            y_minus[d, s.id] * cover_dict.get((d, s.id), (0, 0, 0))[1] +  # weight_under
-            y_plus[d, s.id] * cover_dict.get((d, s.id), (0, 0, 0))[2]  # weight_over
+            y_minus[d, s.id, ns] * cover_dict.get((d, s.id), (0, 0, 0))[1] +  # weight_under
+            y_plus[d, s.id, ns] * cover_dict.get((d, s.id), (0, 0, 0))[2]  # weight_over
             for d in range(numbers_days)
             for s in shifts
+            for ns in range(numbers_shift_per_day)
         )
 
         md.minimize(obj)
@@ -332,14 +344,22 @@ def main():
                     print(f"Schedule for the employee {e.id}:")
                     f.write(f"{e.id}\n")
                     for d in range(numbers_days):
-                        assigned_shift = "/"
+                        assigned_shift = ["/", "/", "/"]
                         for p in shifts:
-                            # if solution.get_value(x[e.id, d, p.id]):
-                            if solution.get_value(x[e.id, d, p.id]) > 0.5:
-                                assigned_shift = p.id
+                            for ns in range(numbers_shift_per_day):
+                                # if solution.get_value(x[e.id, d, p.id]):
+                                if solution.get_value(x[e.id, d, p.id, ns]) > 0.5:
+                                    assigned_shift[ns] = p.id
 
-                        f.write(f"{assigned_shift}")
-                        print(f"Day {d} : [{assigned_shift}]", end=" ")
+                        #f.write(f"{assigned_shift}")
+                        shift = "/"
+                        for i, val in enumerate(assigned_shift):
+                            if val != "/":
+                                shift = val
+                                f.write(f"{shift}{i}")
+                        if shift == "/":
+                            f.write(f"{shift}9")
+                        print(f"Day {d} : {assigned_shift}", end=" ")
                     f.write("\n")
                     print()
         else:
