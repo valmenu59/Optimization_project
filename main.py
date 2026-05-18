@@ -1,3 +1,6 @@
+from itertools import count
+
+from docplex.cp.modeler import true
 from docplex.mp.model import Model
 
 # h: number of days in the planning horizon
@@ -167,27 +170,141 @@ def read_txt_file(file_name: str):
                     section_staff[index][1] = index1
                     #print(section_staff[index][1])
                 elif section_number == 3:
-                    #section_days_off = transform_line_to_list(line)
                     section_days_off.append(transform_line_to_list(line))
                 elif section_number == 4:
-                    #section_shift_on_requests = transform_line_to_list(line)
                     section_shift_on_requests.append(transform_line_to_list(line))
                 elif section_number == 5:
-                    #section_shift_off_requests = transform_line_to_list(line)
                     section_shift_off_requests.append(transform_line_to_list(line))
                 elif section_number == 6:
-                    #section_cover = transform_line_to_list(line)
                     section_cover.append(transform_line_to_list(line))
 
-            #print("cccccccccccccccccccccc")
-            #for i in section_shift:
-            #    print(i)
             return duration, section_shift, section_staff, section_days_off, section_shift_on_requests, section_shift_off_requests, section_cover
 
     except FileNotFoundError as e:
-        print("file not found")
+        assert FileNotFoundError("This file is not found")
     except Exception as e:
-        print(e)
+        assert Exception(e)
+
+def test_model(result, shifts, employees):
+    current_employee = ""
+    for employee_schedule in result:
+        # 1
+        constraint_1 = True
+        non_working_shift = -1
+        # 2
+        constraint_2 = True
+        current_shift = "/"
+        # 3
+        list_count_shift = [[0, s.id] for s in shifts]
+        constraint_3 = True
+        # 4
+        total_duration = 0
+        constraint_4 = True
+        # 5 & 6
+        consecutive_day = 0
+        max_consecutive_days = 0
+        constraint_5 = True
+        min_consecutive_days = 1_000_000_000
+        constraint_6 = True
+
+
+        #print(employee_schedule)
+        for i, schedule in enumerate(employee_schedule):
+            if i == 0:
+                current_employee = employee_schedule[0]
+                print(f"Employee {current_employee}")
+            else:
+                # Test constraint n°1
+                if i < len(employee_schedule) - 1:
+                    # can't work night and the morning next day
+                    if employee_schedule[i][2] != "/" and employee_schedule[i + 1][0] != "/":
+                        constraint_1 = False
+                # count the number of non-working shift per day, results need to be equal at 2 or 3, not 1 or 0
+                non_working_shift = schedule.count("/")
+                if non_working_shift < 2:
+                    constraint_1 = False
+
+                # Test constraint n°2
+                last_shift = current_shift
+                if non_working_shift != 3:
+                    for shift in schedule:
+                        if shift != "/":
+                            current_shift = shift
+                else:
+                    current_shift = "/"
+                for s in shifts:
+                    # verify if last shift is in the list cannot_follow
+                    if last_shift == s.id:
+                        if current_shift in s.cannot_follow:
+                            constraint_2 = False
+
+                # Test constraint n°3
+                if non_working_shift != 3:
+                    for shift in schedule:
+                        for shift_count in list_count_shift:
+                            #print(shift_count)
+                            if shift == shift_count[1]:
+                                shift_count[0] += 1
+                for e in employees:
+                    if e.id == current_employee:
+                        for j in range(0, len(e.m_e_max), 2):
+                            # ex of e.m_e_max -> ['E', 14, 'D', 14, 'L', 0] (in txt file: E=14|D=14|L=0)
+                            if e.m_e_max[j] == list_count_shift[j // 2][1]:
+                                if list_count_shift[j // 2][0] > e.m_e_max[j + 1]:
+                                    constraint_2 = False
+
+                # Test constraint n°4
+                if non_working_shift:
+                    for shift in schedule:
+                        if shift != "/":
+                            for s in shifts:
+                                if s.id == shift:
+                                    total_duration += s.d_p
+                for e in employees:
+                    if e.id == current_employee:
+                        constraint_4 = e.t_e_min <= total_duration <= e.t_e_max
+
+                # Test constraint n°5 & 6
+                if non_working_shift != 3:
+                    consecutive_day += 1
+                    # Max
+                    if consecutive_day > max_consecutive_days:
+                        max_consecutive_days = consecutive_day
+                else:
+                    if consecutive_day <= min_consecutive_days and consecutive_day != 0: # ignore for days and force for the last day
+                        min_consecutive_days = consecutive_day
+                    consecutive_day = 0
+                if consecutive_day <= min_consecutive_days and i == len(employee_schedule) - 1 and consecutive_day != 0:  # for the last
+                    min_consecutive_days = consecutive_day
+
+
+
+        print("Constraint n°1:", end="\t")
+        if constraint_1:
+            print("\033[92m {}\033[00m".format("PASSED"))
+        else:
+            #print(f"FAILED   {constraint_1}   {non_working_shift}")
+            print("\033[91m {} {} {}\033[00m".format("FAILED", constraint_1, non_working_shift))
+        print("Constraint n°2:", end="\t")
+        if constraint_2:
+            print("\033[92m {}\033[00m".format("PASSED"))
+        else:
+            print("\033[91m {}\033[00m".format("FAILED"))
+        print("Constraint n°3:", end="\t")
+        if constraint_3:
+            print("\033[92m {}\033[00m".format("PASSED"))
+        else:
+            print("\033[91m {}\033[00m".format("FAILED"))
+        print("Constraint n°4:", end="\t")
+        if constraint_4:
+            print("\033[92m {}\033[00m".format("PASSED"))
+        else:
+            print("\033[91m {} duration:{}\033[00m".format("FAILED", total_duration))
+        print("Constraint n°5 & 6:", end="\t")
+        print(max_consecutive_days, min_consecutive_days)
+        print()
+
+
 
 
 def main():
@@ -268,8 +385,7 @@ def main():
                 max_assignments = e.m_e_max[j + 1] # Ex: '14'
 
                 md.add_constraint(
-                    md.sum(x[e.id, d, shift_id, ns] for d in range(numbers_days) for ns in range(numbers_shift_per_day)) <= max_assignments,
-                    ctname=f"max_shift_{e.id}_{shift_id}"
+                    md.sum(x[e.id, d, shift_id, ns] for d in range(numbers_days) for ns in range(numbers_shift_per_day)) <= max_assignments
                 )
 
         # 4th constraint: Each employee works a bounded total duration.
@@ -337,12 +453,17 @@ def main():
         # RESOLUTION
         solution = md.solve()
 
+        #print("# SOLUTION: #")
+        #print(solution)
+        final_solution = []
+
         # Print and write the calendar for each employee
         if solution:
             with open(f"results.txt", "w") as f:
-                for e in employees:
+                for nb, e in enumerate(employees):
                     print(f"Schedule for the employee {e.id}:")
                     f.write(f"{e.id}\n")
+                    final_solution.append([e.id])
                     for d in range(numbers_days):
                         assigned_shift = ["/", "/", "/"]
                         for p in shifts:
@@ -359,11 +480,15 @@ def main():
                                 f.write(f"{shift}{i}")
                         if shift == "/":
                             f.write(f"{shift}9")
+                        final_solution[nb].append(assigned_shift)
                         print(f"Day {d} : {assigned_shift}", end=" ")
                     f.write("\n")
                     print()
+
+            #print(final_solution)
+            test_model(final_solution, shifts, employees)
         else:
-            print("There is no solution")
+            assert Exception("There is no solution")
 
 
 

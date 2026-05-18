@@ -9,8 +9,8 @@ table {
 th, td {
     border: 1px solid black;
     padding: 8px;
-    min-width: 80px;
-    max-width: 80px;
+    min-width: 100px;
+    max-width: 100px;
 }
 
 .day {

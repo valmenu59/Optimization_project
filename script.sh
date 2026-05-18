@@ -13,7 +13,9 @@ npm install
 # Execution
 printf "\n\n### Execution ###\n\n\n"
 python3 main.py
+sleep 1
 node server.js &
-xdg-open http://localhost:3000/ & # open the browser (on Linux), on windows is start [browser (opt)] [link]
+sleep 0.1
+xdg-open http://localhost:3000/ & # open the browser (on Linux), on windows is "start [browser (opt)] [link]"
 wait
 
