@@ -9,8 +9,36 @@ table {
 th, td {
     border: 1px solid black;
     padding: 8px;
-    min-width: 100px;
-    max-width: 100px;
+    min-width: 120px;
+    max-width: 120px;
+}
+
+h1 {
+    font-weight: bold;
+    padding-bottom: 20px;
+}
+
+#div_select_result {
+    padding-bottom: 20px;
+}
+
+#corner {
+    visibility: hidden;
+    border: 0
+}
+
+#no_result {
+    color: red;
+    font-weight: bold;
+}
+
+#employee_title {
+    padding-top: 20px;
+    padding-bottom: 10px;
+}
+
+.shift_label {
+    background-color: #abd4dd;
 }
 
 .day {

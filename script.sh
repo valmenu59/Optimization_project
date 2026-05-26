@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Initialisation
+mkdir results
+
 # Installation
 printf "\n### Installation ###\n\n\n"
 pip install cplex
@@ -13,9 +16,9 @@ npm install
 # Execution
 printf "\n\n### Execution ###\n\n\n"
 python3 main.py
-sleep 1
+wait
 node server.js &
-sleep 0.1
+sleep 0.5
 xdg-open http://localhost:3000/ & # open the browser (on Linux), on windows is "start [browser (opt)] [link]"
 wait
 

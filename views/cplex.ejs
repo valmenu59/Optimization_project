@@ -8,80 +8,148 @@
     <title>CPLEX</title>
 </head>
 <body>
-    <div id="data-container">
+    <div id="data-container" hidden="hidden">
         <%= results %>
     </div>
+
+    <h1>Nurse scheduling problem</h1>
+
+    <div id="div_select_result">
+        <label for="select_result">Please to choose the result from file :</label>
+        <select id="select_result" name="select_result"></select>
+    </div>
+
     <script>
-        const results = <%- JSON.stringify(results) %>;
+        const all_results = <%- JSON.stringify(results) %>;
+        const select_result = document.querySelector("#select_result");
 
-        console.log("Data got :\n", results);
-
-        results.forEach((result) => {
-            let employeeId = result[0];
-            let schedule = result[1];
-
-            let title = document.createElement("h3");
-            title.textContent = `Employee ${employeeId}:`;
-            document.body.appendChild(title);
-
-            let table;
-            let headerRow;
-            let shiftRow;
-            const days = ["Mon.", "Tue.", "Wed.", "Thu.", "Fri.", "Sat.", "Sun."];
-            let rows;
-
-            for (let j = 0; j < schedule.length; j+=2) {
-
-                if ((j / 2) % 7 === 0) {
-                    table = document.createElement("table");
-                    //table.border = "1";
-                    table.style.marginBottom = "20px";
+        const shift_labels = ["Morning", "Afternoon", "Night"];
 
 
-                    headerRow = document.createElement("tr"); // days
-                    headerRow.classList.add("headerDay");
-                    table.appendChild(headerRow);
+        select_result.addEventListener("change", (e) => {
+            const selectedIndex = e.target.value;
 
-                    rows = [];
-                    for (let i = 0; i < 3; i++){
-                        shiftRow = document.createElement("tr");  // shift
-                        shiftRow.classList.add("shiftRow");
-                        table.appendChild(shiftRow);
-                        rows.push(shiftRow);
-                    }
-
-
-                    document.body.appendChild(table);
-                }
-
-
-                // day cell
-                let tdDay = document.createElement("td");
-                tdDay.textContent = `${days[(j / 2) % 7]} ${(j / 2) + 1}`;
-                tdDay.classList.add("day");
-                if ((j / 2) % 7 === 5 || (j / 2) % 7 === 6) {
-                    tdDay.classList.add("weekend");
-                }
-                //tdDay.style.backgroundColor = "#f2f2f2";
-                headerRow.appendChild(tdDay);
-
-                // shift cell
-                for (let i = 0; i < 3; i++){
-                    let tdShift = document.createElement("td");
-                    if (schedule.charAt(j) !== "/" && schedule.charAt(j + 1) == i){
-                        tdShift.textContent = schedule.charAt(j);
-                        tdShift.classList.add("has_shift");
+            all_results.forEach((_, index) => {
+                let container = document.getElementById("result_container_" + index);
+                if (container) {
+                    if (String(index + 1) === selectedIndex) {
+                        container.style.display = "block";
                     } else {
-                        tdShift.textContent = "/";
+                        container.style.display = "none";
                     }
-                    tdShift.classList.add("shift");
-                    if ((j / 2) % 7 === 5 || (j / 2) % 7 === 6) {
-                        tdShift.classList.add("weekend");
-                    }
-                    rows[i].appendChild(tdShift);
                 }
+            });
+        });
+
+        console.log("Data got :\n", all_results);
+
+        all_results.forEach((results, index) => {
+            console.log(results, index)
+
+            let option = document.createElement("option");
+            option.text = "Result n°" + (index + 1);
+            option.value = index + 1;
+            select_result.appendChild(option);
+
+            let result_schedule = document.createElement("div");
+            result_schedule.id = "result_container_" + index;
+            result_schedule.style.display = index === 0 ? "block" : "none";
+
+            let file_name = document.createElement("h2");
+            file_name.textContent = "Results from the file n°" + (index + 1);
+            result_schedule.appendChild(file_name);
+
+            if (results){
+                results.forEach((result) => {
+                    let employeeId = result[0];
+                    let schedule = result[1];
+
+                    let employee = document.createElement("h3");
+                    employee.textContent = `Employee ${employeeId}:`;
+                    employee.id = "employee_title";
+                    result_schedule.appendChild(employee);
+
+                    let table;
+                    let headerRow;
+                    const days = ["Mon.", "Tue.", "Wed.", "Thu.", "Fri.", "Sat.", "Sun."];
+                    let rows;
+
+                    for (let j = 0; j < schedule.length; j += 6) {
+
+                        if ((j / 6) % 7 === 0) {
+                            table = document.createElement("table");
+                            table.style.marginBottom = "20px";
+
+                            headerRow = document.createElement("tr");
+                            headerRow.classList.add("headerDay");
+
+                            // First cell
+                            let cornerCell = document.createElement("th");
+                            cornerCell.textContent = "";
+                            cornerCell.id = "corner"
+                            headerRow.appendChild(cornerCell);
+                            table.appendChild(headerRow);
+
+                            rows = [];
+                            for (let i = 0; i < 3; i++){
+                                let shiftRow = document.createElement("tr");
+
+                                // insertion labels Morning, Afternoon, Night
+                                let labelCell = document.createElement("td");
+                                labelCell.textContent = shift_labels[i];
+                                labelCell.classList.add("shift_label");
+                                shiftRow.appendChild(labelCell);
+
+                                table.appendChild(shiftRow);
+                                rows.push(shiftRow);
+                            }
+
+                            result_schedule.appendChild(table);
+                        }
+
+                        // header (days)
+                        let tdDay = document.createElement("td");
+                        tdDay.textContent = `${days[(j / 6) % 7]} (D${(j / 6) + 1})`;
+                        tdDay.classList.add("day");
+                        if ((j / 6) % 7 === 5 || (j / 6) % 7 === 6) {
+                            tdDay.classList.add("weekend");
+                        }
+                        headerRow.appendChild(tdDay);
+
+                        // shifts
+                        for (let i = 0; i < 3; i++){
+                            let tdShift = document.createElement("td");
+                            if (schedule.charAt(j + i * 2) !== "/"){
+                                if (schedule.charAt(j + i * 2) === "*") {
+                                    tdShift.textContent = schedule.charAt(j + i * 2 + 1);
+                                } else {
+                                    tdShift.textContent = schedule.charAt(j + i * 2) + schedule.charAt(j + i * 2 + 1);
+                                }
+
+                                tdShift.classList.add("has_shift");
+                            } else {
+                                tdShift.textContent = "/";
+                            }
+                            tdShift.classList.add("shift");
+                            if ((j / 6) % 7 === 5 || (j / 6) % 7 === 6) {
+                                tdShift.classList.add("weekend");
+                            }
+                            rows[i].appendChild(tdShift);
+                        }
+                    }
+                });
+
+                document.body.appendChild(result_schedule);
+            } else {
+                let div_no_result = document.createElement("div");
+                div_no_result.textContent = "No results found for this file";
+                div_no_result.id = "no_result";
+                result_schedule.appendChild(div_no_result);
+
+                document.body.appendChild(result_schedule);
             }
         });
+
 
     </script>
 </body>
