@@ -15,7 +15,9 @@ npm install
 
 # Execution
 printf "\n\n### Execution ###\n\n\n"
-python3 main.py
+# arguments can be added like --start 3 --end 8 or -s 3 -e 8 to read instances from 3 to 8 (included)
+# without arguments values are 1 to 10
+python3 main.py # --start 3 --end 8
 wait
 node server.js &
 sleep 0.5

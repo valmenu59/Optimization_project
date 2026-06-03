@@ -1,4 +1,7 @@
 from docplex.mp.model import Model
+import xml.etree.ElementTree as xml_tree
+import warnings
+import argparse
 
 NON_WORKING_SHIFT = "//"
 NUMBER_SHIFTS_PER_DAY = 3
@@ -468,6 +471,44 @@ def register_solution_to_txt_file(solution, x, number_days, employees, shifts, f
     # print(final_solution)
     return final_solution
 
+def register_solution_to_ros_file(solution, x, number_days, employees, shifts, filename_number):
+    xml_tree.register_namespace('xsi', 'http://www.w3.org/2001/XMLSchema-instance')
+
+    # root (roster)
+    roster = xml_tree.Element("Roster", {
+        "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
+        "xsi:noNamespaceSchemaLocation": "Roster.xsd"
+    })
+
+    # link
+    period_file = xml_tree.SubElement(roster, "SchedulingPeriodFile")
+    period_file.text = f"instances/Instance{filename_number}.ros"
+
+    for nb, e in enumerate(employees):
+        employee_xml = xml_tree.SubElement(roster, "Employee", {
+            "ID": e.id
+        })
+
+        for d in range(number_days):
+            assigned_shift = ""
+            for p in shifts:
+                for ns in range(NUMBER_SHIFTS_PER_DAY):
+                    if solution.get_value(x[e.id, d, p.id, ns]) > 0.5:
+                        assigned_shift = p.id
+                        break
+                if assigned_shift != "":
+                    break
+            if assigned_shift != "":
+                assign = xml_tree.SubElement(employee_xml, "Assign")
+                xml_tree.SubElement(assign, "Day").text = str(d)
+                xml_tree.SubElement(assign, "Shift").text = assigned_shift
+
+    xml_data = xml_tree.tostring(roster, encoding="utf-8")
+
+    with open(f"results/result{filename_number}.roster.xml", "wb") as f:
+        f.write(xml_data)
+
+
 
 
 
@@ -537,7 +578,7 @@ def calculate_schedule(elements):
     ##################
 
     with Model(name = "cplex") as md:
-        # variables
+        # VARIABLES
         # w = 1 if the employee does the same type of shift for the day d, else 0
         # x depends on employee, day, shift
         w = md.binary_var_dict([(e.id, d, s.id) for e in employees for d in range(numbers_days) for s in shifts],
@@ -560,6 +601,9 @@ def calculate_schedule(elements):
 
         y_minus = md.integer_var_dict([(d, s.id, ns) for d in range(numbers_days) for s in shifts for ns in range(NUMBER_SHIFTS_PER_DAY)], lb=0, name="shortage")
         y_plus = md.integer_var_dict([(d, s.id, ns) for d in range(numbers_days) for s in shifts for ns in range(NUMBER_SHIFTS_PER_DAY)], lb=0, name="surplus")
+
+        num_weekends = numbers_days // 7
+        weekend_worked = md.binary_var_dict([(e.id, w_idx) for e in employees for w_idx in range(num_weekends)])
 
         # CONSTRAINTS
         # 1st constraint: Each employee can be assigned to only one shift type per day at most
@@ -665,10 +709,6 @@ def calculate_schedule(elements):
 
         # 8th constraint: Each employee e must not work more than w^max(e) weekends (a weekend is considered worked
         #   if the employee works at least one of the two days, Saturday or Sunday)
-        num_weekends = numbers_days // 7
-
-        weekend_worked = md.binary_var_dict([(e.id, w_idx) for e in employees for w_idx in range(num_weekends)])
-
         for e in employees:
             for w_idx in range(num_weekends):
                 saturday_idx = 5 + (w_idx * 7)
@@ -680,7 +720,7 @@ def calculate_schedule(elements):
             md.add_constraint(
                 md.sum(weekend_worked[e.id, w_idx] for w_idx in range(num_weekends)) <= e.w_e_max)
 
-
+        # 9th constraint: Employees must not be assigned any shift on their mandatory days off.
         for e in employees:
             if len(e.r_e) > 0:
                 for d in e.r_e:
@@ -724,7 +764,28 @@ def calculate_schedule(elements):
 
 
 def main():
-    for i in range(1, 11):
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("-s", "--start", type=int, default=1, help="Number of start instance")
+    parser.add_argument("-e", "--end", type=int, default=10, help="Number of end instance")
+
+    args = parser.parse_args()
+
+    if args.start < 1:
+        args.start = 1
+
+    if args.end > 24:
+        args.end = 24
+
+    if args.end >= 19:
+        warnings.warn("Instances superior at 18 can take too much resources for your computer")
+
+    if args.start > args.end:
+        args.start, args.end = args.end, args.start # exchange values
+    elif args.start == args.end:
+        args.end += 1
+
+    for i in range(args.start, args.end + 1):
         print("\n################")
         print(f"### FILE N°{i} ###")
         print("################\n")
@@ -741,6 +802,14 @@ def main():
                                         elements_schedule[4],
                                         f"results/result{i}.txt"
                                         )
+                register_solution_to_ros_file(
+                    elements_schedule[0],
+                    elements_schedule[1],
+                    elements_schedule[2],
+                    elements_schedule[3],
+                    elements_schedule[4],
+                    i
+                )
                 test_model(solution, elements_schedule[4], elements_schedule[3])
             else:
                 print("\n\033[91m {}\033[00m\n".format(f"There is no solution for the instance n°{i}"))
