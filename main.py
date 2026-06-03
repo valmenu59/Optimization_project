@@ -782,10 +782,6 @@ def main():
 
     if args.start > args.end:
         args.start, args.end = args.end, args.start # exchange values
-    elif args.start == args.end:
-        args.end += 1
-        if args.end == 25:
-            args.end = 24
 
     for i in range(args.start, args.end + 1):
         print("\n################")
